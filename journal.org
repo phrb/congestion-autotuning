@@ -74,7 +74,7 @@
 
 * Autotuning for Congestion with Supersim                            :ATTACH:
 :PROPERTIES:
-:Attachments: rs_20_samples_10_iterations.csv rs_20_samples_10_iterations_search_space.csv
+:Attachments: rs_20_samples_10_iterations.csv rs_20_samples_10_iterations_search_space.csv rs_20_samples_10_iterations_search_space_weighted.csv rs_20_samples_10_iterations_weighted.csv rs_20_samples_10_iterations_full.csv rs_20_samples_10_iterations_search_space_full.csv
 :ID:       06967f15-a9b1-4877-8710-0e1aa38dda1e
 :END:
 ** Cloning the Git Repository                                     :noexport:
@@ -88,7 +88,10 @@ git clone git@github.com:phrb/supersim_experiments.git || (cd supersim_experimen
 : fatal: destination path 'supersim_experiments' already exists and is not an empty directory.
 : Already up to date.
 
-** Simple Initial Experiment
+** Mean Performance with Varying Injection Rate
+:PROPERTIES:
+:EXPORT_FILE_NAME: congestion-report.pdf
+:END:
 The experiment  consists of changing  injection rates  $inj_1$ and $inj_2$,  for 2
 applications in  Supersim, and optimize the  execution times $\mathcal{P}(inj_1)$
 and $\mathcal{P}(inj_2)$.  The experimental settings are:
@@ -110,12 +113,1028 @@ specified intervals,  and 10 repetitions  were performed. In total,  200 samples
 were measured, and the best value according to the performance metric was logged
 separately for each repetition.
 
+*** Results with Average of Execution Times
 The figure  below shows the injection  rates, for both applications,  in the 200
 samples tested.
 
 #+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
 #+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_injection_scatter.pdf" :width 10 :height 9 :exports results
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_injection_scatter.pdf" :width 14 :height 6 :exports results :eval no-export
+library(ggplot2)
+library(latex2exp)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20)
+
+ggplot(rs_search_space_df,
+       aes(x = injection_rate_1,
+           y = injection_rate_2)) +
+  facet_wrap(. ~ id, nrow = 2) +
+  xlab(TeX("$inj_1$")) +
+  ylab(TeX("$inj_2$")) +
+  geom_point(alpha = 1.0, size = 2) +
+  theme_bw(base_size = 20)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.8\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_injection_scatter.pdf]]
+
+**** Histograms
+Looking at the  histograms of the performance metric and  the execution times of
+both  applications,  in  the  figure  below,  we see  that  almost  150  of  the
+configurations tested had performance below $10^{9}$.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(latex2exp)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>% select(Application_1,
+                                                    Application_2,
+                                                    performance_metric)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("key", "performance",
+         Application_1, Application_2, performance_metric)
+
+rs_search_space_df$key <- factor(rs_search_space_df$key,
+                                 levels = c("Application_1",
+                                            "Application_2",
+                                            "performance_metric"),
+                                 labels = c(TeX("$P_1(inj_1)$"),
+                                            TeX("$P_2(inj_2)$"),
+                                            TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")))
+
+ggplot(rs_search_space_df, aes(x = performance)) +
+  facet_wrap(key ~ ., ncol = 1, labeller = label_parsed) +
+  geom_histogram(aes(y = ..count..), fill = "gray48", bins = 20) +
+  ylab("Count") +
+  xlab("Performance Metric") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram.pdf]]
+
+Below, we take a closer look at the lower end performance measurements.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(latex2exp)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>% select(Application_1,
+                                                    Application_2,
+                                                    performance_metric)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("key", "performance",
+         Application_1, Application_2, performance_metric)
+
+rs_search_space_df$key <- factor(rs_search_space_df$key,
+                                 levels = c("Application_1",
+                                            "Application_2",
+                                            "performance_metric"),
+                                 labels = c(TeX("$P_1(inj_1)$"),
+                                            TeX("$P_2(inj_2)$"),
+                                            TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")))
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(performance <= 8.65e+07)
+
+ggplot(rs_search_space_df, aes(x = performance)) +
+  facet_wrap(key ~ ., ncol = 1, labeller = label_parsed) +
+  geom_histogram(aes(y = ..count..), fill = "gray48") +
+  ylab("Count") +
+  xlab("Performance Metric") +
+  # scale_x_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "b") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf]]
+
+**** Mean Performance and Injection Rate
+We  now  look  at  the  performance metric  measured  for  each  injection  rate
+configuration.  The  figure below splits the  values of injection rate  for each
+application, and shows the performance metric computed using the execution times
+of both applications.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2,
+         injection_rate_1, injection_rate_2) %>%
+  mutate(injection = factor(injection,
+                            levels = c("injection_rate_1",
+                                       "injection_rate_2"),
+                            labels = c(TeX("$inj_1$"),
+                                       TeX("$inj_2$"))))
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1, labeller = label_parsed) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  ylab(TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")) +
+  xlab("Injection Rate") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter.pdf]]
+
+The solid lines represent the fit of the collected data to the linear models
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_1 = \beta_{1}inj_1 +
+\beta_{2}\left(\dfrac{1}{inj_1}\right)\text{,}
+\end{equation*}
+#+end_export
+for the top box, and
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_2 = \beta_{3}inj_2 +
+\beta_{4}\left(\dfrac{1}{inj_2}\right)\text{,}
+\end{equation*}
+#+end_export
+for the bottom box. The shaded  regions represent the 95% confidence interval of
+the mean.
+
+Visual inspection of  these fits indicates that $inj_1$ does  not affect the mean
+performance metric  as much as  $inj_2$, which also have  a strong effect  in the
+performance of application  1. The mean performance metric seems  to fit well to
+the model using $inj_2$.
+
+***** Scatters for other metrics                               :noexport:
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_closer.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2)
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(rate >= 0.1 & performance_metric <= 8.8e07)
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_closer.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2)
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = Application_1)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2,
+         injection_rate_1, injection_rate_2)
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = Application_2)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf]]
+
+**** ANOVA and Linear Model Fit
+We  now perform  statistical  tests  to confirm  the  visual  analyses from  the
+previous section.   We perform a  linear model fit using  the 20 samples  from a
+single experiment, picked  at random between the 10  repetitions performed.  The
+linear model we have used was
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y = \beta_{1}inj_1 +
+\beta_{2}inj_2 +
+\beta_{3}\left(\dfrac{1}{inj_1}\right) +
+\beta_{4}\left(\dfrac{1}{inj_2}\right) +
+\beta_{5}\left(inj_{1}inj_{2}\right) +
+\beta_{6}\left(\dfrac{1}{inj_{1}inj_2}\right)\text{.}
+\end{equation*}
+#+end_export
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+library(broom)
+library(xtable)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20)
+
+reg <- lm(data = subset(rs_search_space_df, id == sample(seq(1,20), 1)),
+          performance_metric ~ injection_rate_1 * injection_rate_2 +
+            I(1 / injection_rate_1) * I(1 / injection_rate_2))
+
+tidy_reg <- tidy(reg)
+
+sanitize_I <- function(str) {
+  str_replace_all(str,
+                  c("_" = "\\\\_",
+                    ":" = " $\\\\times$ ",
+                    "I\\(" = "",
+                    "\\(" = "",
+                    "\\)" = ""))
+}
+
+tidy_reg <- tidy_reg %>%
+  select(term, estimate, p.value)
+
+names(tidy_reg) <- c("Model Term", "Coefficient", "Significance p-value")
+
+table_reg <- xtable(tidy_reg,
+                    digits = -1,
+                    caption = "Regression coefficients for a linear model fit using 20 experiments")
+
+print(table_reg,
+      display = c("s", "g", "g"),
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      sanitize.text.function = sanitize_I,
+      caption.placement = "top",
+      booktabs = TRUE)
+#+end_SRC
+
+#+RESULTS:
+#+begin_export latex
+
+% latex table generated in R 3.6.3 by xtable 1.8-4 package
+% Thu Mar  5 12:36:02 2020
+\begin{table}[ht]
+\centering
+\caption{Regression coefficients for a linear model fit using 20 experiments}
+\begin{tabular}{lrr}
+  \toprule
+Model Term & Coefficient & Significance p-value \\
+  \midrule
+Intercept & $8.4 \times 10^{6}$ & $5.1 \times 10^{-1}$ \\
+  injection\_rate\_1 & $-6.6 \times 10^{7}$ & $1.1 \times 10^{-1}$ \\
+  injection\_rate\_2 & $1.1 \times 10^{8}$ & $1.0 \times 10^{-2}$ \\
+  1/injection\_rate\_1 & $2.9 \times 10^{5}$ & $5.9 \times 10^{-1}$ \\
+  1/injection\_rate\_2 & $1.4 \times 10^{7}$ & $3.0 \times 10^{-13}$ \\
+  injection\_rate\_1 $\times$ injection\_rate\_2 & $1.7 \times 10^{8}$ & $1.6 \times 10^{-1}$ \\
+  1/injection\_rate\_1 $\times$ 1/injection\_rate\_2 & $-1.9 \times 10^{5}$ & $1.2 \times 10^{-1}$ \\
+   \bottomrule
+\end{tabular}
+\end{table}
+#+end_export
+
+The  model coefficient  magnitude and  significance values  confirm that  $inj_2$
+impacts the mean performance more than $inj_1$, and the interaction between these
+factors seem to not be significant  in this experiment. We also perform analysis
+of variance,  using the same  performance mode,  for a single  20-run experiment
+picked at random, shown in the table below.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+library(broom)
+library(xtable)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20)
+
+reg <- aov(data = subset(rs_search_space_df, id == sample(seq(1,20), 1)),
+           performance_metric ~ injection_rate_1 * injection_rate_2 +
+             I(1 / injection_rate_1) * I(1 / injection_rate_2))
+
+tidy_reg <- tidy(reg)
+
+sanitize_I <- function(str) {
+  str_replace_all(str,
+                  c("_" = "\\\\_",
+                    ":" = " $\\\\times$ ",
+                    "I\\(" = "",
+                    "\\(" = "",
+                    "\\)" = ""))
+}
+
+tidy_reg <- tidy_reg %>%
+  select(term, p.value)
+
+names(tidy_reg) <- c("Model Term", "Significance p-value")
+
+table_reg <- xtable(tidy_reg,
+                    digits = -1,
+                    caption = "Analisys of variance for a linear model fit using 20 experiments")
+
+print(table_reg,
+      display = c("s", "s", "g"),
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      sanitize.text.function = sanitize_I,
+      caption.placement = "top",
+      booktabs = TRUE)
+#+end_SRC
+
+#+RESULTS:
+#+begin_export latex
+
+% latex table generated in R 3.6.3 by xtable 1.8-4 package
+% Thu Mar  5 12:37:13 2020
+\begin{table}[ht]
+\centering
+\caption{Analisys of variance for a linear model fit using 20 experiments}
+\begin{tabular}{lr}
+  \toprule
+Model Term & Significance p-value \\
+  \midrule
+injection\_rate\_1 & $4.4 \times 10^{-9}$ \\
+  injection\_rate\_2 & $1.1 \times 10^{-18}$ \\
+  1/injection\_rate\_1 & $1.5 \times 10^{-5}$ \\
+  1/injection\_rate\_2 & $6.8 \times 10^{-20}$ \\
+  injection\_rate\_1 $\times$ injection\_rate\_2 & $9.0 \times 10^{-1}$ \\
+  1/injection\_rate\_1 $\times$ 1/injection\_rate\_2 & $5.4 \times 10^{-1}$ \\
+  Residuals &  \\
+   \bottomrule
+\end{tabular}
+\end{table}
+#+end_export
+
+We see again that  the terms using $inj_2$ explain more  of the observed variance
+on the performance metric. For further experiments using these two applications,
+performance mean can be modeled and minimized using only a linear and an inverse
+term  for  $inj_2$.  Further  steps   should  be  attempting  to  generalize  the
+statistical analysis  for more applications  running at  the same time,  or with
+more controllable parameters.
+*** Results with Weighted Sum of Average of Injection Rates and Execution Times
+The figure  below shows the injection  rates, for both applications,  in the 200
+samples tested.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_weighted_scatter.pdf" :width 14 :height 6 :exports results :eval no-export
+library(ggplot2)
+library(latex2exp)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20)
+
+ggplot(rs_search_space_df,
+       aes(x = injection_rate_1,
+           y = injection_rate_2)) +
+  facet_wrap(. ~ id, nrow = 2) +
+  xlab(TeX("$inj_1$")) +
+  ylab(TeX("$inj_2$")) +
+  geom_point(alpha = 1.0, size = 2) +
+  theme_bw(base_size = 20)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.8\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_weighted_scatter.pdf]]
+
+**** Histograms
+Looking at the  histograms of the performance metric and  the execution times of
+both  applications,  in  the  figure  below,  we see  that  almost  150  of  the
+configurations tested had performance below $10^{9}$.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_weighted.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(latex2exp)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>% select(Application_1,
+                                                    Application_2,
+                                                    performance_metric)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("key", "performance",
+         Application_1, Application_2, performance_metric) %>%
+  filter(key == "performance_metric")
+
+rs_search_space_df$key <- factor(rs_search_space_df$key,
+                                 levels = c("performance_metric"),
+                                 labels = c(TeX("$(1/(inj_1 + inj_2)) + (P_1(inj_1) + P_2(inj_2)) / 2$")))
+
+ggplot(rs_search_space_df, aes(x = performance)) +
+  facet_wrap(key ~ ., ncol = 1, labeller = label_parsed) +
+  geom_histogram(aes(y = ..count..), fill = "gray48", bins = 20) +
+  ylab("Count") +
+  xlab("Performance Metric") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_weighted.pdf]]
+
+Below, we take a closer look at the lower end performance measurements.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(latex2exp)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>% select(Application_1,
+                                                    Application_2,
+                                                    performance_metric)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("key", "performance",
+         Application_1, Application_2, performance_metric)
+
+rs_search_space_df$key <- factor(rs_search_space_df$key,
+                                 levels = c("Application_1",
+                                            "Application_2",
+                                            "performance_metric"),
+                                 labels = c(TeX("$P_1(inj_1)$"),
+                                            TeX("$P_2(inj_2)$"),
+                                            TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")))
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(performance <= 8.65e+07)
+
+ggplot(rs_search_space_df, aes(x = performance)) +
+  facet_wrap(key ~ ., ncol = 1, labeller = label_parsed) +
+  geom_histogram(aes(y = ..count..), fill = "gray48") +
+  ylab("Count") +
+  xlab("Performance Metric") +
+  # scale_x_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "b") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf]]
+
+**** Mean Performance and Injection Rate
+We  now  look  at  the  performance metric  measured  for  each  injection  rate
+configuration.  The  figure below splits the  values of injection rate  for each
+application, and shows the performance metric computed using the execution times
+of both applications.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_weighted.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2,
+         injection_rate_1, injection_rate_2) %>%
+  mutate(injection = factor(injection,
+                            levels = c("injection_rate_1",
+                                       "injection_rate_2"),
+                            labels = c(TeX("$inj_1$"),
+                                       TeX("$inj_2$")))) %>%
+  filter(is.finite(performance_metric))
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1, labeller = label_parsed) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  ylab(TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")) +
+  xlab("Injection Rate") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_weighted.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_weighted.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE) %>%
+  mutate(id = (row_number()- 1) %/% 20)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2, -id,
+         injection_rate_1, injection_rate_2) %>%
+  mutate(injection = factor(injection,
+                            levels = c("injection_rate_1",
+                                       "injection_rate_2"),
+                            labels = c(TeX("$inj_1$"),
+                                       TeX("$inj_2$")))) %>%
+  filter(is.finite(performance_metric))
+
+ggplot(subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1, labeller = label_parsed) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  ylab(TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")) +
+  xlab("Injection Rate") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_weighted.pdf]]
+
+The solid lines represent the fit of the collected data to the linear models
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_1 = \beta_{1}inj_1 +
+\beta_{2}\left(\dfrac{1}{inj_1}\right)\text{,}
+\end{equation*}
+#+end_export
+for the top box, and
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_2 = \beta_{3}inj_2 +
+\beta_{4}\left(\dfrac{1}{inj_2}\right)\text{,}
+\end{equation*}
+#+end_export
+for the bottom box. The shaded  regions represent the 95% confidence interval of
+the mean.
+
+Visual inspection of  these fits indicates that $inj_1$ does  not affect the mean
+performance metric  as much as  $inj_2$, which also have  a strong effect  in the
+performance of application  1. The mean performance metric seems  to fit well to
+the model using $inj_2$.
+
+***** Scatters for other metrics                               :noexport:
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_closer_weighted.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE) %>%
+  mutate(id = (row_number()- 1) %/% 20)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric, -id,
+         -Application_1, -Application_2) %>%
+  filter(is.finite(performance_metric))
+
+ggplot(subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_closer_weighted.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1_weighted.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE) %>%
+  mutate(id = (row_number()- 1) %/% 20)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric, -id,
+         -Application_1, -Application_2) %>%
+  filter(is.finite(performance_metric))
+
+ggplot(subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+       aes(x = rate,
+           y = Application_1)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1_weighted.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2,
+         injection_rate_1, injection_rate_2)
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = Application_2)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf]]
+
+**** ANOVA and Linear Model Fit
+We  now perform  statistical  tests  to confirm  the  visual  analyses from  the
+previous section.   We perform a  linear model fit using  the 20 samples  from a
+single experiment, picked  at random between the 10  repetitions performed.  The
+linear model we have used was
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y = \beta_{1}inj_1 +
+\beta_{2}inj_2 +
+\beta_{3}\left(\dfrac{1}{inj_1}\right) +
+\beta_{4}\left(\dfrac{1}{inj_2}\right) +
+\beta_{5}\left(inj_{1}inj_{2}\right) +
+\beta_{6}\left(\dfrac{1}{inj_{1}inj_2}\right)\text{.}
+\end{equation*}
+#+end_export
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+library(broom)
+library(xtable)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20) %>%
+  filter(is.finite(performance_metric))
+
+reg <- lm(data = subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+          performance_metric ~ injection_rate_1 * injection_rate_2 +
+            I(1 / injection_rate_1) * I(1 / injection_rate_2))
+
+tidy_reg <- tidy(reg)
+
+sanitize_I <- function(str) {
+  str_replace_all(str,
+                  c("_" = "\\\\_",
+                    ":" = " $\\\\times$ ",
+                    "I\\(" = "",
+                    "\\(" = "",
+                    "\\)" = ""))
+}
+
+tidy_reg <- tidy_reg %>%
+  select(term, estimate, p.value)
+
+names(tidy_reg) <- c("Model Term", "Coefficient", "Significance p-value")
+
+table_reg <- xtable(tidy_reg,
+                    digits = -1,
+                    caption = "Regression coefficients for a linear model fit using 20 experiments")
+
+print(table_reg,
+      display = c("s", "g", "g"),
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      sanitize.text.function = sanitize_I,
+      caption.placement = "top",
+      booktabs = TRUE)
+#+end_SRC
+
+#+RESULTS:
+#+begin_export latex
+
+% latex table generated in R 3.6.3 by xtable 1.8-4 package
+% Sat Mar  7 15:55:17 2020
+\begin{table}[ht]
+\centering
+\caption{Regression coefficients for a linear model fit using 20 experiments}
+\begin{tabular}{lrr}
+  \toprule
+Model Term & Coefficient & Significance p-value \\
+  \midrule
+Intercept & $2.7 \times 10^{0}$ & $6.4 \times 10^{-6}$ \\
+  injection\_rate\_1 & $-2.1 \times 10^{0}$ & $2.7 \times 10^{-4}$ \\
+  injection\_rate\_2 & $-1.4 \times 10^{0}$ & $1.4 \times 10^{-2}$ \\
+  1/injection\_rate\_1 & $9.7 \times 10^{-3}$ & $3.9 \times 10^{-1}$ \\
+  1/injection\_rate\_2 & $1.2 \times 10^{-1}$ & $3.6 \times 10^{-9}$ \\
+  injection\_rate\_1 $\times$ injection\_rate\_2 & $2.6 \times 10^{0}$ & $4.5 \times 10^{-3}$ \\
+  1/injection\_rate\_1 $\times$ 1/injection\_rate\_2 & $1.7 \times 10^{-2}$ & $3.9 \times 10^{-7}$ \\
+   \bottomrule
+\end{tabular}
+\end{table}
+#+end_export
+
+The  model coefficient  magnitude and  significance values  confirm that  $inj_2$
+impacts the mean performance more than $inj_1$, and the interaction between these
+factors seem to not be significant  in this experiment. We also perform analysis
+of variance,  using the same  performance mode,  for a single  20-run experiment
+picked at random, shown in the table below.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+library(broom)
+library(xtable)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20) %>%
+  filter(is.finite(performance_metric))
+
+reg <- aov(data = subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+           performance_metric ~ injection_rate_1 * injection_rate_2 +
+             I(1 / injection_rate_1) * I(1 / injection_rate_2))
+
+tidy_reg <- tidy(reg)
+
+sanitize_I <- function(str) {
+  str_replace_all(str,
+                  c("_" = "\\\\_",
+                    ":" = " $\\\\times$ ",
+                    "I\\(" = "",
+                    "\\(" = "",
+                    "\\)" = ""))
+}
+
+tidy_reg <- tidy_reg %>%
+  select(term, p.value)
+
+names(tidy_reg) <- c("Model Term", "Significance p-value")
+
+table_reg <- xtable(tidy_reg,
+                    digits = -1,
+                    caption = "Analisys of variance for a linear model fit using 20 experiments")
+
+print(table_reg,
+      display = c("s", "s", "g"),
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      sanitize.text.function = sanitize_I,
+      caption.placement = "top",
+      booktabs = TRUE)
+#+end_SRC
+
+#+RESULTS:
+#+begin_export latex
+
+% latex table generated in R 3.6.3 by xtable 1.8-4 package
+% Sat Mar  7 16:00:38 2020
+\begin{table}[ht]
+\centering
+\caption{Analisys of variance for a linear model fit using 20 experiments}
+\begin{tabular}{lr}
+  \toprule
+Model Term & Significance p-value \\
+  \midrule
+injection\_rate\_1 & $7.4 \times 10^{-7}$ \\
+  injection\_rate\_2 & $1.3 \times 10^{-11}$ \\
+  1/injection\_rate\_1 & $6.7 \times 10^{-9}$ \\
+  1/injection\_rate\_2 & $6.0 \times 10^{-11}$ \\
+  injection\_rate\_1 $\times$ injection\_rate\_2 & $4.6 \times 10^{-9}$ \\
+  1/injection\_rate\_1 $\times$ 1/injection\_rate\_2 & $3.9 \times 10^{-7}$ \\
+  Residuals &  \\
+   \bottomrule
+\end{tabular}
+\end{table}
+#+end_export
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_full.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+library(broom)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(gtsummary)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- rs_search_space_df %>%
+  mutate(id = (row_number() - 1) %/% 20) %>%
+  filter(is.finite(performance_metric))
+
+reg <- lm(data = subset(rs_search_space_df, id == sample(seq(0, 9), 1)),
+           performance_metric ~ injection_rate_1 * injection_rate_2 +
+             I(1 / injection_rate_1) * I(1 / injection_rate_2))
+
+tbl_regression(reg)
+#+end_SRC
+
+#+RESULTS:
+#+begin_export latex
+
+Results will be printed using `knitr::kable()` and do not
+support footnotes, spanning headers, or indentation.
+
+For tables styled by the gt package, use the installation code below.
+`remotes::install_github("rstudio/gt", ref = gtsummary::gt_sha)`
+
+If you prefer to always use `knitr::kable()`, add the option
+`options(gtsummary.print_engine = "kable")` to your script
+or in a user- or project-level startup file, '.Rprofile'.
+
+
+|**Characteristic**                            |**Beta** |**95% CI**  |**p-value** |
+|:---------------------------------------------|:--------|:-----------|:-----------|
+|injection_rate_1                              |-1.4     |-3.5, 0.76  |0.2         |
+|injection_rate_2                              |-0.53    |-4.6, 3.5   |0.7         |
+|I(1/injection_rate_1)                         |-0.07    |-0.19, 0.05 |0.2         |
+|I(1/injection_rate_2)                         |0.06     |-0.02, 0.15 |0.11        |
+|injection_rate_1 * injection_rate_2           |0.23     |-5.5, 6.0   |>0.9        |
+|I(1/injection_rate_1) * I(1/injection_rate_2) |0.03     |-0.02, 0.08 |0.14        |
+#+end_export
+
+We see again that  the terms using $inj_2$ explain more  of the observed variance
+on the performance metric. For further experiments using these two applications,
+performance mean can be modeled and minimized using only a linear and an inverse
+term  for  $inj_2$.  Further  steps   should  be  attempting  to  generalize  the
+statistical analysis  for more applications  running at  the same time,  or with
+more controllable parameters.
+*** Results with Weighted Sums of Averages of Injection Rates and Execution Times :noexport:
+The figure  below shows the injection  rates, for both applications,  in the 200
+samples tested.
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_injection_scatter.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -132,17 +1151,16 @@ ggplot(rs_search_space_df,
 
 #+ATTR_LATEX: :width 0.4\textwidth
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_injection_scatter.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_injection_scatter.pdf]]
 
-*** Initial Results
 **** Histograms
 Looking at the  histograms of the performance metric and  the execution times of
 both  applications,  in  the  figure  below,  we see  that  almost  150  of  the
 configurations tested had performance below $10^{9}$.
 
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram.pdf" :width 10 :height 9 :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_histogram.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(latex2exp)
@@ -174,13 +1192,13 @@ ggplot(rs_search_space_df, aes(x = performance)) +
 
 #+ATTR_LATEX: :width 0.5\textwidth
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_histogram.pdf]]
 
 Below, we take a closer look at the lower end performance measurements.
 
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf" :width 10 :height 9 :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_histogram_cut.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(latex2exp)
@@ -188,27 +1206,16 @@ library(latex2exp)
 rs_best_df <- read.csv(rs_best, header = TRUE)
 rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
 
-rs_search_space_df <- rs_search_space_df %>% select(Application_1,
-                                                    Application_2,
-                                                    performance_metric)
+rs_search_space_df <- rs_search_space_df %>% select(performance_metric)
 
-rs_search_space_df <- rs_search_space_df %>%
-  gather("key", "performance",
-         Application_1, Application_2, performance_metric)
+# rs_search_space_df$performance_metric <- factor(rs_search_space_df$performance_metric,
+#                              levels = "performance",
+#                              labels = c(TeX("$w_1((inj_1 + inj_2) / 2)+w_2(P_1(inj_1) + P_2(inj_2)) / 2$")))
 
-rs_search_space_df$key <- factor(rs_search_space_df$key,
-                                 levels = c("Application_1",
-                                            "Application_2",
-                                            "performance_metric"),
-                                 labels = c(TeX("$P_1(inj_1)$"),
-                                            TeX("$P_2(inj_2)$"),
-                                            TeX("$(P_1(inj_1) + P_2(inj_2)) / 2$")))
+# rs_search_space_df <- rs_search_space_df %>%
+#   filter(performance <= 8.8e+07)
 
-rs_search_space_df <- rs_search_space_df %>%
-  filter(performance <= 8.8e+07)
-
-ggplot(rs_search_space_df, aes(x = performance)) +
-  facet_wrap(key ~ ., ncol = 1, labeller = label_parsed) +
+ggplot(rs_search_space_df, aes(x = performance_metric)) +
   geom_histogram(aes(y = ..count..), fill = "gray48") +
   # scale_x_continuous(trans = 'log10') +
   # annotation_logticks(sides = "b") +
@@ -217,7 +1224,7 @@ ggplot(rs_search_space_df, aes(x = performance)) +
 
 #+ATTR_LATEX: :width 0.5\textwidth
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_histogram_cut.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_histogram_cut.pdf]]
 
 **** Performance Metric and Injection Rate
 We  now  look  at  the  performance metric  measured  for  each  injection  rate
@@ -225,9 +1232,9 @@ configuration.  The  figure below splits the  values of injection rate  for each
 application, and shows the performance metric computed using the execution times
 of both applications.
 
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter.pdf" :width 10 :height 9 :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_scatter.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -257,13 +1264,13 @@ ggplot(rs_search_space_df,
 
 #+ATTR_LATEX: :width 0.6\textwidth
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_scatter.pdf]]
 
 
 ***** Scatters for other metrics                               :noexport:
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1.pdf" :width 10 :height 9 :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_closer.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -274,8 +1281,43 @@ rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
 rs_search_space_df <- rs_search_space_df %>%
   gather("injection", "rate",
          -duration, -performance_metric,
-         -Application_1, -Application_2,
-         injection_rate_1, injection_rate_2)
+         -Application_1, -Application_2)
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(rate >= 0.1 & performance_metric <= 8.8e07)
+
+ggplot(rs_search_space_df,
+       aes(x = rate,
+           y = performance_metric)) +
+  facet_wrap(injection ~ ., ncol = 1) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  geom_smooth(method = "lm",
+              formula = y ~ x + I(1 / x)) +
+  # scale_color_brewer(palette = "Set2") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29)
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth
+#+RESULTS:
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_closer.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_app1.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+  gather("injection", "rate",
+         -duration, -performance_metric,
+         -Application_1, -Application_2)
 
 ggplot(rs_search_space_df,
        aes(x = rate,
@@ -292,11 +1334,11 @@ ggplot(rs_search_space_df,
 #+end_SRC
 
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app1.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_app1.pdf]]
 
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf" :width 10 :height 9 :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_app2.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -325,12 +1367,12 @@ ggplot(rs_search_space_df,
 #+end_SRC
 
 #+RESULTS:
-[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_app2.pdf]]
+[[file:./img/2_apps_weighted/rs_20_samples_10_iterations_scatter_app2.pdf]]
 
 **** ANOVA and Goodness of Fit
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
-#+begin_SRC R :results output latex :session *R* :eval no-export :exports results
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
+#+begin_SRC R :results output latex :session *R* :eval no-export :exports results :eval no-export
 library(broom)
 library(xtable)
 library(dplyr)
@@ -373,26 +1415,27 @@ print(table_reg,
 #+RESULTS:
 #+begin_export latex
 % latex table generated in R 3.6.2 by xtable 1.8-4 package
-% Fri Feb 28 17:07:50 2020
+% Sat Feb 29 02:02:27 2020
 \begin{table}[ht]
 \centering
 \begin{tabular}{lr}
   \toprule
 Model Term & Significance p-value \\
   \midrule
-(Intercept & $2.3 \times 10^{-6}$ \\
-  injection\_rate\_1 & $1.9 \times 10^{-2}$ \\
-  injection\_rate\_2 & $3.8 \times 10^{-63}$ \\
-  1/injection\_rate\_1 & $1.8 \times 10^{-2}$ \\
-  1/injection\_rate\_2 & $8.4 \times 10^{-261}$ \\
-  1/injection\_rate\_1$\times$1/injection\_rate\_2 & $8.5 \times 10^{-3}$ \\
+(Intercept & $4.0 \times 10^{-65}$ \\
+  injection\_rate\_1 & $1.3 \times 10^{-32}$ \\
+  injection\_rate\_2 & $1.4 \times 10^{-24}$ \\
+  1/injection\_rate\_1 & $1.7 \times 10^{-3}$ \\
+  1/injection\_rate\_2 & $6.9 \times 10^{-126}$ \\
+  injection\_rate\_1$\times$injection\_rate\_2 & $7.3 \times 10^{-15}$ \\
+  1/injection\_rate\_1$\times$1/injection\_rate\_2 & $3.9 \times 10^{-9}$ \\
    \bottomrule
 \end{tabular}
 \end{table}
 #+end_export
 
-#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations.csv"
-#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space.csv"
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted.csv"
 #+begin_SRC R :results output latex :session *R* :eval no-export :exports results
 library(broom)
 library(xtable)
@@ -436,18 +1479,19 @@ print(table_reg,
 #+RESULTS:
 #+begin_export latex
 % latex table generated in R 3.6.2 by xtable 1.8-4 package
-% Fri Feb 28 17:07:42 2020
+% Sat Feb 29 02:02:36 2020
 \begin{table}[ht]
 \centering
 \begin{tabular}{lr}
   \toprule
 Model Term & Significance p-value \\
   \midrule
-injection\_rate\_1 & $4.3 \times 10^{-115}$ \\
-  injection\_rate\_2 & $2.2 \times 10^{-225}$ \\
-  1/injection\_rate\_1 & $7.2 \times 10^{-19}$ \\
-  1/injection\_rate\_2 & $6.9 \times 10^{-267}$ \\
-  1/injection\_rate\_1$\times$1/injection\_rate\_2 & $8.5 \times 10^{-3}$ \\
+injection\_rate\_1 & $1.3 \times 10^{-13}$ \\
+  injection\_rate\_2 & $8.5 \times 10^{-107}$ \\
+  1/injection\_rate\_1 & $2.6 \times 10^{-20}$ \\
+  1/injection\_rate\_2 & $5.7 \times 10^{-139}$ \\
+  injection\_rate\_1$\times$injection\_rate\_2 & $1.9 \times 10^{-23}$ \\
+  1/injection\_rate\_1$\times$1/injection\_rate\_2 & $3.9 \times 10^{-9}$ \\
    \bottomrule
 \end{tabular}
 \end{table}
