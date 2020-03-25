@@ -809,6 +809,51 @@ ggplot(rs_search_space_df,
 
 #+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted_full.csv"
 #+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted_full.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_injections_weighted_full.pdf" :width 10 :height 9 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+rs_best_df <- read.csv(rs_best, header = TRUE)
+rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+
+rs_search_space_df <- rs_search_space_df %>%
+#   gather("injection", "rate",
+#          -duration, -performance_metric,
+#          -Application_1, -Application_2,
+#          injection_rate_1, injection_rate_2) %>%
+#   mutate(injection = factor(injection,
+#                             levels = c("injection_rate_1",
+#                                        "injection_rate_2"),
+#                             labels = c(TeX("$inj_1$"),
+#                                        TeX("$inj_2$")))) %>%
+  filter(is.finite(performance_metric))
+
+ggplot(rs_search_space_df,
+       aes(x = injection_rate_1,
+           y = injection_rate_2,
+           color = performance_metric)) +
+  #facet_wrap(injection ~ ., ncol = 1, labeller = label_parsed) +
+  geom_point(alpha = 1.0) +
+  # scale_y_continuous(trans = 'log10') +
+  # annotation_logticks(sides = "l") +
+  #ylab(TeX("$(1/(inj_1 + inj_2)) + (P_1(inj_1) + P_2(inj_2)) / 2$")) +
+  #xlab("Injection Rate") +
+  # geom_smooth(method = "lm",
+  #             formula = y ~ x + I(1 / x)) +
+  scale_color_gradient(low = "red", high = "yellow") +
+  # scale_color_continuous(palette = "reds") +
+  theme_bw(base_size = 29) +
+  theme(legend.position = "none")
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth :placement [h]
+#+CAPTION: Linear model fit for the performance metric, with respect to $inj_1$ and $inj_2$, for the ensemble of data
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_injections_weighted_full.pdf]]
+
+#+HEADER: :var rs_best="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_weighted_full.csv"
+#+HEADER: :var rs_search_space="data/06/967f15-a9b1-4877-8710-0e1aa38dda1e/rs_20_samples_10_iterations_search_space_weighted_full.csv"
 #+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_10_iterations_scatter_weighted_full_single.pdf" :width 10 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
