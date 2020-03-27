@@ -582,14 +582,15 @@ The figure  below shows the injection  rates, for both applications,  in the 200
 samples tested.
 
 #+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+HEADER: :var rs_search_space_2="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space_2.csv"
 #+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_1_iterations_saturation.pdf" :width 14 :height 6 :exports results :eval no-export
 library(ggplot2)
 library(latex2exp)
 library(dplyr)
 library(tidyr)
 
-rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
-rs_search_space_df <- rs_search_space_df
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE),
+                                read.csv(rs_search_space_2, header = TRUE))
 
 ggplot(rs_search_space_df,
        aes(x = injection_rate_1,
@@ -801,13 +802,15 @@ ggplot(rs_search_space_df,
 [[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_saturation.pdf]]
 
 #+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+HEADER: :var rs_search_space_2="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space_2.csv"
 #+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation.pdf" :width 14 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
 
-rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE),
+                                read.csv(rs_search_space_2, header = TRUE))
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.02 & injection_rate_2 > 0.02) %>%
@@ -890,13 +893,15 @@ p1 / p2
 [[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation.pdf]]
 
 #+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+HEADER: :var rs_search_space_2="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space_2.csv"
 #+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg.pdf" :width 14 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
 
-rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE),
+                                read.csv(rs_search_space_2, header = TRUE))
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.02 & injection_rate_2 > 0.02) %>%
@@ -904,7 +909,7 @@ rs_search_space_df <- rs_search_space_df %>%
 
 p1 <- ggplot() +
   geom_quantile(data = rs_search_space_df,
-                quantiles = c(0.05),
+                quantiles = c(0.05, .50, .95),
                 size = 1.5,
                 alpha = 0.8,
                 color = "darkgreen",
@@ -979,26 +984,49 @@ p1 / p2
 [[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg.pdf]]
 
 #+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+HEADER: :var rs_search_space_2="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space_2.csv"
 #+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg_pred.pdf" :width 14 :height 9 :exports results :eval no-export
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
 library(quantreg)
+library(AlgDesign)
 
-rs_search_space_df <- read.csv(rs_search_space, header = TRUE)
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE),
+                                read.csv(rs_search_space_2, header = TRUE))
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.02 & injection_rate_2 > 0.02) %>%
   filter(is.finite(performance_metric))
 
+output <- optFederov(data = rs_search_space_df,
+                     performance_metric ~ injection_rate_1 +
+                       injection_rate_2 +
+                       I(1 / injection_rate_1) +
+                       I(1 / injection_rate_2) +
+                       I(injection_rate_2 ^ 2) +
+                       I(injection_rate_1 ^ 2),
+                     nTrials = 12)
 
-regression <- rq(data = sample_n(rs_search_space_df, 30),
-                 tau = 0.05,
+# regression <- rq(data = output$design,
+#                  tau = 0.05,
+#                  formula = performance_metric ~ injection_rate_1 +
+#                    injection_rate_2 +
+#                    I(1 / injection_rate_1) +
+#                    I(1 / injection_rate_2) +
+#                    I(injection_rate_2 ^ 2) +
+#                    I(injection_rate_1 ^ 2)
+#                  )
+
+regression <- lm(data = output$design,
                  formula = performance_metric ~ injection_rate_1 +
-                   injection_rate_2 + I(1 / injection_rate_1) +
-                   I(injection_rate_1 ^ 2) + I(1 / injection_rate_2) +
-                   I(injection_rate_2 ^ 2))
+                   injection_rate_2 +
+                   I(1 / injection_rate_1) +
+                   I(1 / injection_rate_2) +
+                   I(injection_rate_2 ^ 2) +
+                   I(injection_rate_1 ^ 2)
+                 )
 
 prediction <- predict(newdata = rs_search_space_df, object = regression)
 
