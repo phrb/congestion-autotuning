@@ -795,7 +795,6 @@ ggplot(rs_search_space_df,
 #+end_SRC
 
 #+ATTR_LATEX: :width 0.6\textwidth :placement [h]
-#+CAPTION: Linear model fit for the performance metric, with respect to $inj_1$ and $inj_2$, for the ensemble of data
 #+RESULTS:
 [[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_saturation.pdf]]
 
@@ -805,16 +804,20 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
+library(latex2exp)
 
-rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
+rs_search_space_df <- read.csv(rs_search_space, stringsAsFactors = FALSE, header = TRUE)
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
-  filter(performance_metric <= 60) %>%
+  #filter(performance_metric <= 60) %>%
   filter(Application_2 <= 2e+8) %>%
   filter(Application_1 <= 2e+8) %>%
   filter(is.finite(performance_metric)) %>%
-  mutate(Applications = (Application_1 + Application_2))
+  #mutate(Applications = performance_metric)
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) #%>%
+  # mutate(Applications = (Application_1 + Application_2))
 
 p1 <- ggplot() +
   geom_point(alpha = 1.0,
@@ -909,15 +912,26 @@ rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
-  filter(performance_metric <= 60) %>%
+  # filter(performance_metric <= 60) %>%
   filter(Application_2 <= 2e+8) %>%
   filter(Application_1 <= 2e+8) %>%
   filter(is.finite(performance_metric)) %>%
-  mutate(Applications = (10e-9 * (Application_1 + Application_2)))
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) #%>%
+  # mutate(Applications = (Application_1 + Application_2))
+  #mutate(Applications = performance_metric)
 
 p1 <- ggplot() +
+  # geom_smooth(data = rs_search_space_df,
+  #               size = 1.5,
+  #               alpha = 0.8,
+  #               color = "darkgreen",
+  #               method = "lm",
+  #               aes(x = injection_rate_2,
+  #                   y = Applications),
+  #               formula = y ~ x + I(1 / x) + I(x ^ 2)) +
   geom_quantile(data = rs_search_space_df,
-                quantiles = c(0.05),
+                quantiles = c(0.05, 0.5),
                 size = 1.5,
                 alpha = 0.8,
                 color = "darkgreen",
@@ -950,7 +964,7 @@ p1 <- ggplot() +
 
 p2 <- ggplot() +
   geom_quantile(data = rs_search_space_df,
-                quantiles = c(0.05),
+                quantiles = c(0.05, 0.4),
                 size = 1.5,
                 alpha = 0.85,
                 color = "darkgreen",
@@ -1004,11 +1018,13 @@ rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
 
 rs_search_space_df <- rs_search_space_df %>%
   filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
-  # filter(Application_2 <= 2e+8) %>%
-  # filter(Application_1 <= 2e+8) %>%
+  filter(Application_2 <= 2e+8) %>%
+  filter(Application_1 <= 2e+8) %>%
   filter(is.finite(performance_metric)) %>%
-  mutate(Applications = (10e-9 * (Application_1 + Application_2))) %>%
-  filter(Applications <= 10)
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) # %>%
+  #mutate(Applications = Application_1 + Application_2) #%>%
+  #filter(Applications <= 10)
 
 output <- optFederov(data = rs_search_space_df,
                      Applications ~ injection_rate_1 +
@@ -1017,9 +1033,20 @@ output <- optFederov(data = rs_search_space_df,
                        I(1 / injection_rate_2) +
                        I(injection_rate_2 ^ 2) +
                        I(injection_rate_1 ^ 2),
-                     nTrials = 30)
+                     nTrials = 15)
 
+#regression <- rq(data = sample_n(rs_search_space_df, 18),
 regression <- rq(data = output$design,
+                 tau = 0.5,
+                 formula = Applications ~ injection_rate_1 +
+                   injection_rate_2 +
+                   I(1 / injection_rate_1) +
+                   I(1 / injection_rate_2) +
+                   I(injection_rate_2 ^ 2) +
+                   I(injection_rate_1 ^ 2)
+                 )
+
+regression005 <- rq(data = output$design,
                  tau = 0.05,
                  formula = Applications ~ injection_rate_1 +
                    injection_rate_2 +
@@ -1033,10 +1060,13 @@ regression <- rq(data = output$design,
 #                  formula = Applications ~ injection_rate_1 +
 #                    injection_rate_2 +
 #                    I(1 / injection_rate_1) +
-#                    I(1 / injection_rate_2)
+#                    I(1 / injection_rate_2) +
+#                    I(injection_rate_2 ^ 2) +
+#                    I(injection_rate_1 ^ 2)
 #                  )
 
 prediction <- predict(newdata = rs_search_space_df, object = regression)
+prediction005 <- predict(newdata = rs_search_space_df, object = regression005)
 
 p1 <- ggplot() +
   geom_point(alpha = 0.4,
@@ -1049,6 +1079,13 @@ p1 <- ggplot() +
              size = 5,
              color = "red",
              shape = 2,
+             stroke = 3,
+             aes(x = injection_rate_2,
+                 y = Applications)) +
+  geom_point(data = rs_search_space_df[prediction005 == min(prediction005), ],
+             size = 2,
+             color = "black",
+             shape = 3,
              stroke = 3,
              aes(x = injection_rate_2,
                  y = Applications)) +
@@ -1090,6 +1127,13 @@ p2 <- ggplot() +
              shape = 3,
              stroke = 3,
              aes(x = injection_rate_1,
+                 y = Applications)) +
+  geom_point(data = rs_search_space_df[prediction005 == min(prediction005), ],
+             size = 2,
+             color = "black",
+             shape = 3,
+             stroke = 3,
+             aes(x = injection_rate_2,
                  y = Applications)) +
   ylab(TeX("$P(inj_1,inj_2)$")) +
   xlab(TeX("Injection Rate ($inj_1$)")) +
