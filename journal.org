@@ -113,7 +113,7 @@ injection rate ranges.
 Low-discrepancy samples  of size 20 were  taken for both injection  rates on the
 specified intervals,  and 10 repetitions  were performed. In total,  200 samples
 were measured, and the best value according to the performance metric was logged
-separately for each repetition.
+
 
 *** Results with Average of Execution Times                      :noexport:
 The figure  below shows the injection  rates, for both applications,  in the 200
@@ -1828,3 +1828,540 @@ injection\_rate\_1 & $1.3 \times 10^{-13}$ \\
 \end{tabular}
 \end{table}
 #+end_export
+
+** Wrapping up the Simple Example
+The experiment  consists of changing  injection rates  $inj_1$ and $inj_2$,  for 2
+applications in  Supersim, and optimize the  execution times $\mathcal{P}(inj_1)$
+and $\mathcal{P}(inj_2)$.  The experimental settings are:
+
+#+ATTR_LATEX: :booktabs t :align lc
+|----------------------------+-----------------------------------------------------------------------------------------------|
+| Parameter                  | Value                                                                                         |
+|----------------------------+-----------------------------------------------------------------------------------------------|
+| Injection Rate 1 ($inj_1$) | $[0.0, 1.0]$                                                                                  |
+| Injection Rate 2 ($inj_2$) | $[0.0, 1.0]$                                                                                  |
+| Performance Metric         | $\frac{(1 - (inj_1 + inj_2))^{2}}{2} + \frac{\mathcal{P}_1(inj_1) + \mathcal{P}_2(inj_2)}{2}$ |
+|----------------------------+-----------------------------------------------------------------------------------------------|
+
+The interval for  injection rates was limited because the  simulator crashed for
+larger rates.   The problem must  be better  understood to determine  the proper
+injection rate ranges.
+
+Low-discrepancy samples  of size 20 were  taken for both injection  rates on the
+specified intervals,  and 10 repetitions  were performed. In total,  200 samples
+were measured, and the best value according to the performance metric was logged
+separately for each repetition.
+
+*** Weighted Sum of Averages of Injection Rates and Execution Times
+The figure  below shows the injection  rates, for both applications,  in the 200
+samples tested.
+
+#+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_1_iterations_saturation.pdf" :width 7 :height 6 :exports results :eval no-export
+library(ggplot2)
+library(latex2exp)
+library(dplyr)
+library(tidyr)
+library(extrafont)
+library(scales)
+
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
+
+ggplot(rs_search_space_df,
+       aes(x = injection_rate_1,
+           y = injection_rate_2)) +
+    xlab(TeX("Injection Rate 1 ($inj_1$)")) +
+    ylab(TeX("Injection Rate 2 ($inj_2$)")) +
+    geom_point(alpha = 1.0, size = 2, shape = 1) +
+    theme_bw(base_size = 20)
+#+end_SRC
+
+#+CAPTION: Values of $inj_1$ and $inj_2$ in each of the 10 repetitions
+#+ATTR_LATEX: :width 0.8\textwidth
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_1_iterations_saturation.pdf]]
+
+#+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_20_samples_1_iterations_saturation_federov.pdf" :width 7 :height 6 :exports results :eval no-export
+library(ggplot2)
+library(latex2exp)
+library(dplyr)
+library(tidyr)
+library(extrafont)
+library(scales)
+
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
+
+rs_search_space_df <- rs_search_space_df %>%
+    filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
+    filter(Application_2 <= 2e+8) %>%
+    filter(Application_1 <= 2e+8) %>%
+    filter(is.finite(performance_metric)) %>%
+    mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+               (1.5e-8 * (Application_1 + Application_2))) # %>%
+
+output <- optFederov(data = rs_search_space_df,
+                     Applications ~ injection_rate_1 +
+                         injection_rate_2 +
+                         I(1 / injection_rate_1) +
+                         I(1 / injection_rate_2) +
+                         I(injection_rate_2 ^ 2) +
+                         I(injection_rate_1 ^ 2),
+                     nTrials = 15)
+
+ggplot(output$design,
+       aes(x = injection_rate_1,
+           y = injection_rate_2)) +
+    xlab(TeX("Injection Rate 1 ($inj_1$)")) +
+    ylab(TeX("Injection Rate 2 ($inj_2$)")) +
+    geom_point(alpha = 1.0, size = 2, shape = 16) +
+    annotate("text",
+             size = 6,
+             x = 0.2,
+             y = 0.95,
+             label = TeX("P = inj_{1,2} + inj_{1,2}^{2} +$")) +
+    annotate("text",
+             size = 6,
+             x = 0.19,
+             y = 0.88,
+             label = TeX("(1 / inj_{1,2})$")) +
+    theme_bw(base_size = 20)
+#+end_SRC
+
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_20_samples_1_iterations_saturation_federov.pdf]]
+
+
+**** Mean Performance and Injection Rate
+We  now  look  at  the  performance metric  measured  for  each  injection  rate
+configuration.  The  figure below splits the  values of injection rate  for each
+application, and shows the performance metric computed using the execution times
+of both applications.
+
+The solid lines represent the fit of the collected data to the linear models
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_1 = \beta_{1}inj_1 +
+\beta_{2}\left(\dfrac{1}{inj_1}\right)\text{,}
+\end{equation*}
+#+end_export
+for the top box, and
+#+begin_export latex
+\begin{equation*}
+\dfrac{\mathcal{P}(inj_1) + \mathcal{P}(inj_2)}{2} =
+Y_2 = \beta_{3}inj_2 +
+\beta_{4}\left(\dfrac{1}{inj_2}\right)\text{,}
+\end{equation*}
+#+end_export
+for the bottom box. The shaded  regions represent the 95% confidence interval of
+the mean.
+
+Visual inspection of  these fits indicates that $inj_1$ does  not affect the mean
+performance metric  as much as  $inj_2$, which also have  a strong effect  in the
+performance of application  1. The mean performance metric seems  to fit well to
+the model using $inj_2$.
+
+#+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation.pdf" :width 14 :height 13 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(latex2exp)
+library(extrafont)
+library(scales)
+
+rs_search_space_df <- read.csv(rs_search_space, stringsAsFactors = FALSE, header = TRUE)
+base_size = 32
+legend_size = 25
+legend_position = c(0.625, 0.95)
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
+  #filter(performance_metric <= 60) %>%
+  filter(Application_2 <= 2e+8) %>%
+  filter(Application_1 <= 2e+8) %>%
+  filter(is.finite(performance_metric)) %>%
+  #mutate(Applications = performance_metric)
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) #%>%
+  # mutate(Applications = (Application_1 + Application_2))
+
+p1 <- ggplot() +
+    geom_point(alpha = 1.0,
+               data = rs_search_space_df,
+               size = 3,
+               aes(x = injection_rate_2,
+                   group = cut_interval(injection_rate_1,
+                                        n = 4),
+                   color = cut_interval(injection_rate_1,
+                                        n = 4),
+                   y = Applications)) +
+    geom_line(data = rs_search_space_df,
+              size = 1,
+              aes(x = injection_rate_2,
+                  group = cut_interval(injection_rate_1,
+                                       n = 4),
+                  color = cut_interval(injection_rate_1,
+                                       n = 4),
+                  y = Applications)) +
+    geom_point(data = filter(rs_search_space_df,
+                             Applications == min(Applications)),
+               size = 4,
+               color = "red",
+               shape = 2,
+               stroke = 2,
+               aes(x = injection_rate_2,
+                   y = Applications))+
+    ylab(TeX("$P(inj_1,inj_2)$")) +
+    xlab(TeX("Injection Rate ($inj_2$)")) +
+    scale_color_brewer(labels = c("[0.0, 0.25]",
+                                  "(0.25, 0.5]",
+                                  "(0.5, 0.75]",
+                                  "(0.75, 1.0]"),
+                       palette = "Set2") +
+    theme_bw(base_size = base_size) +
+    theme(legend.position = legend_position,
+          legend.direction = "horizontal",
+          legend.background = element_rect(fill = "transparent", colour = NA),
+          legend.text = element_text(size = legend_size),
+          legend.title = element_text(size = legend_size)) +
+    labs(color = TeX("inj_1"))
+
+p2 <- ggplot() +
+  geom_point(alpha = 1.0,
+             data = rs_search_space_df,
+             size = 3,
+             aes(x = injection_rate_1,
+                 group = cut_interval(injection_rate_2, n = 4),
+                 color = cut_interval(injection_rate_2, n = 4),
+                 # y = performance_metric)) +
+                 y = Applications)) +
+  geom_line(data = rs_search_space_df,
+            size = 1,
+            aes(x = injection_rate_1,
+                group = cut_interval(injection_rate_2, n = 4),
+                color = cut_interval(injection_rate_2, n = 4),
+                # y = performance_metric)) +
+                y = Applications)) +
+  geom_point(data = filter(rs_search_space_df,
+                           Applications == min(Applications)),
+             size = 5,
+             color = "red",
+             shape = 2,
+             stroke = 2,
+             aes(x = injection_rate_1,
+                 # y = performance_metric))+
+                 y = Applications)) +
+  ylab(TeX("$P(inj_1,inj_2)$")) +
+  xlab(TeX("Injection Rate ($inj_1$)")) +
+  # geom_smooth(method = "lm",
+  #             formula = y ~ x + I(1 / x)) +
+    scale_color_brewer(labels = c("[0.0, 0.25]",
+                                  "(0.25, 0.5]",
+                                  "(0.5, 0.75]",
+                                  "(0.75, 1.0]"),
+                       palette = "Set2") +
+  theme_bw(base_size = base_size) +
+  theme(legend.position = legend_position,
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        legend.text = element_text(size = legend_size),
+        legend.title = element_text(size = legend_size)) +
+  labs(color = TeX("inj_2"))
+
+p1 / p2
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth :placement [h]
+#+CAPTION: Linear model fit for the performance metric, with respect to $inj_1$ and $inj_2$, for the ensemble of data
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation.pdf]]
+
+#+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg.pdf" :width 14 :height 13 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
+  # filter(performance_metric <= 60) %>%
+  filter(Application_2 <= 2e+8) %>%
+  filter(Application_1 <= 2e+8) %>%
+  filter(is.finite(performance_metric)) %>%
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) #%>%
+  # mutate(Applications = (Application_1 + Application_2))
+  #mutate(Applications = performance_metric)
+
+p1 <- ggplot() +
+  # geom_smooth(data = rs_search_space_df,
+  #               size = 1.5,
+  #               alpha = 0.8,
+  #               color = "darkgreen",
+  #               method = "lm",
+  #               aes(x = injection_rate_2,
+  #                   y = Applications),
+  #               formula = y ~ x + I(1 / x) + I(x ^ 2)) +
+  geom_quantile(data = rs_search_space_df,
+                quantiles = c(0.05, 0.5),
+                size = 1.5,
+                alpha = 0.8,
+                color = "darkgreen",
+                aes(x = injection_rate_2,
+                    y = Applications),
+                formula = y ~ x + I(1 / x) + I(x ^ 2)) +
+  geom_point(alpha = 0.4,
+             data = rs_search_space_df,
+             size = 3,
+             aes(x = injection_rate_2,
+                 y = Applications)) +
+  geom_point(data = filter(rs_search_space_df,
+                           Applications == min(Applications)),
+             size = 5,
+             color = "red",
+             shape = 2,
+             stroke = 3,
+             aes(x = injection_rate_2,
+                 y = Applications)) +
+  ylab(TeX("$P(inj_1,inj_2)$")) +
+  xlab(TeX("Injection Rate ($inj_2$)")) +
+  #scale_color_brewer(palette = "Pastel2") +
+  theme_bw(base_size = 29) +
+  theme(legend.position = c(0.6, 0.95),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        legend.text = element_text(size = 16),
+        legend.title = element_text(size = 16)) +
+  labs(color = TeX("inj_1"))
+
+p2 <- ggplot() +
+  geom_quantile(data = rs_search_space_df,
+                quantiles = c(0.05, 0.4),
+                size = 1.5,
+                alpha = 0.85,
+                color = "darkgreen",
+                aes(x = injection_rate_1,
+                    y = Applications),
+                formula = y ~ x + I(1 / x) + I(x ^ 2)) +
+  geom_point(alpha = 0.4,
+             data = rs_search_space_df,
+             size = 3,
+             aes(x = injection_rate_1,
+                 y = Applications)) +
+  geom_point(data = filter(rs_search_space_df,
+                           Applications == min(Applications)),
+             size = 5,
+             color = "red",
+             shape = 2,
+             stroke = 3,
+             aes(x = injection_rate_1,
+                 y = Applications))+
+  ylab(TeX("$P(inj_1,inj_2)$")) +
+  xlab(TeX("Injection Rate ($inj_1$)")) +
+  # geom_smooth(method = "lm",
+  #             formula = y ~ x + I(1 / x)) +
+  scale_color_brewer(palette = "Pastel2") +
+  theme_bw(base_size = 29) +
+  theme(legend.position = c(0.6, 0.95),
+        legend.direction = "horizontal",
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        legend.text = element_text(size = 16),
+        legend.title = element_text(size = 16)) +
+  labs(color = TeX("inj_2"))
+
+p1 / p2
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth :placement [h]
+#+CAPTION: Linear model fit for the performance metric, with respect to $inj_1$ and $inj_2$, for the ensemble of data
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg.pdf]]
+
+#+HEADER: :var rs_search_space="supersim_experiments/results/weighted_injection_time_saturation/rs_200_samples_1_iterations_search_space.csv"
+#+begin_SRC R :results graphics output :session *R* :file "./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg_pred.pdf" :width 14 :height 13 :exports results :eval no-export
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(quantreg)
+library(AlgDesign)
+
+legend_position = c(0.85, 0.86)
+legend_size = 23
+base_size = 32
+
+rs_search_space_df <- bind_rows(read.csv(rs_search_space, header = TRUE))
+
+rs_search_space_df <- rs_search_space_df %>%
+  filter(injection_rate_1 > 0.00 & injection_rate_2 > 0.00) %>%
+  filter(Application_2 <= 2e+8) %>%
+  filter(Application_1 <= 2e+8) %>%
+  filter(is.finite(performance_metric)) %>%
+  mutate(Applications = abs(1.0 - (injection_rate_2 + injection_rate_1)) +
+           (1.5e-8 * (Application_1 + Application_2))) # %>%
+  #mutate(Applications = Application_1 + Application_2) #%>%
+  #filter(Applications <= 10)
+
+output <- optFederov(data = filter(rs_search_space_df,
+                                   Applications != min(Applications)),
+                     Applications ~ injection_rate_1 +
+                       injection_rate_2 +
+                       I(1 / injection_rate_1) +
+                       I(1 / injection_rate_2) +
+                       I(injection_rate_2 ^ 2) +
+                       I(injection_rate_1 ^ 2),
+                     nTrials = 15)
+
+#regression <- rq(data = sample_n(rs_search_space_df, 18),
+regression <- rq(data = output$design,
+                 tau = 0.9,
+                 formula = Applications ~ injection_rate_1 +
+                   injection_rate_2 +
+                   I(1 / injection_rate_1) +
+                   I(1 / injection_rate_2) +
+                   I(injection_rate_2 ^ 2) +
+                   I(injection_rate_1 ^ 2)
+                 )
+
+regression005 <- rq(data = output$design,
+                 tau = 0.05,
+                 formula = Applications ~ injection_rate_1 +
+                   injection_rate_2 +
+                   I(1 / injection_rate_1) +
+                   I(1 / injection_rate_2) +
+                   I(injection_rate_2 ^ 2) +
+                   I(injection_rate_1 ^ 2)
+                 )
+
+# regression <- lm(data = output$design,
+#                  formula = Applications ~ injection_rate_1 +
+#                    injection_rate_2 +
+#                    I(1 / injection_rate_1) +
+#                    I(1 / injection_rate_2) +
+#                    I(injection_rate_2 ^ 2) +
+#                    I(injection_rate_1 ^ 2)
+#                  )
+
+prediction <- predict(newdata = rs_search_space_df, object = regression)
+prediction005 <- predict(newdata = rs_search_space_df, object = regression005)
+
+p1 <- ggplot() +
+    geom_quantile(data = output$design,
+                  quantiles = c(0.05, 0.5),
+                  size = 2.0,
+                  alpha = 0.6,
+                  aes(x = injection_rate_2,
+                      y = Applications,
+                      color = "Quantile Regression"),
+                  formula = y ~ x + I(1 / x) + I(x ^ 2)) +
+    geom_point(alpha = 1,
+               data = output$design,
+               size = 4,
+               stroke = 2,
+               shape = 4,
+               aes(x = injection_rate_2,
+                   y = Applications,
+                   color = "Measured Points")) +
+    geom_point(alpha = 0.15,
+               data = rs_search_space_df,
+               size = 3,
+               aes(x = injection_rate_2,
+                   y = Applications)) +
+    geom_point(data = filter(rs_search_space_df,
+                             Applications == min(Applications)),
+               size = 5,
+               shape = 2,
+               stroke = 3,
+               aes(x = injection_rate_2,
+                   y = Applications,
+                   color = "Global Optimum")) +
+    geom_point(data = rs_search_space_df[prediction == min(prediction), ],
+               size = 4,
+               shape = 3,
+               stroke = 2,
+               aes(x = injection_rate_2,
+                   y = Applications,
+                   color = "Prediction")) +
+    ylab(TeX("$P(inj_1,inj_2)$")) +
+    xlab(TeX("Injection Rate ($inj_2$)")) +
+    scale_color_brewer(palette = "Set1") +
+    theme_bw(base_size = base_size) +
+    theme(legend.position = legend_position,
+          legend.direction = "horizontal",
+          legend.background = element_rect(fill = "transparent", colour = NA),
+          legend.text = element_text(size = legend_size),
+          legend.title = element_blank()) +
+    labs(color = TeX("inj_1")) +
+    guides(color = guide_legend(nrow = 4,
+                                override.aes = list(alpha = 1.0,
+                                                    size = 2,
+                                                    shape = 16)))
+
+p2 <- ggplot() +
+    geom_quantile(data = output$design,
+                  quantiles = c(0.05, 0.5),
+                  size = 2.0,
+                  alpha = 0.6,
+                  aes(x = injection_rate_1,
+                      y = Applications,
+                      color = "Quantile Regression"),
+                  formula = y ~ x + I(1 / x) + I(x ^ 2)) +
+    geom_point(alpha = 1,
+               data = output$design,
+               size = 4,
+               stroke = 2,
+               shape = 4,
+               aes(x = injection_rate_1,
+                   y = Applications,
+                   color = "Measured Points")) +
+    geom_point(alpha = 0.15,
+               data = rs_search_space_df,
+               size = 3,
+               aes(x = injection_rate_1,
+                   y = Applications)) +
+    geom_point(data = filter(rs_search_space_df,
+                             Applications == min(Applications)),
+               size = 5,
+               shape = 2,
+               stroke = 3,
+               aes(x = injection_rate_1,
+                   y = Applications,
+                   color = "Global Optimum")) +
+    geom_point(data = rs_search_space_df[prediction == min(prediction), ],
+               size = 4,
+               shape = 3,
+               stroke = 2,
+               aes(x = injection_rate_1,
+                   y = Applications,
+                   color = "Prediction")) +
+    ylab(TeX("$P(inj_1,inj_2)$")) +
+    xlab(TeX("Injection Rate ($inj_1$)")) +
+    scale_color_brewer(palette = "Set1") +
+    theme_bw(base_size = base_size) +
+    theme(legend.position = legend_position,
+          legend.direction = "horizontal",
+          legend.background = element_rect(fill = "transparent", colour = NA),
+          legend.text = element_text(size = legend_size),
+          legend.title = element_blank()) +
+    labs(color = TeX("inj_2")) +
+    guides(color = guide_legend(nrow = 4,
+                                override.aes = list(alpha = 1.0,
+                                                    size = 2,
+                                                    shape = 16)))
+
+p1 / p2
+#+end_SRC
+
+#+ATTR_LATEX: :width 0.6\textwidth :placement [h]
+#+CAPTION: Linear model fit for the performance metric, with respect to $inj_1$ and $inj_2$, for the ensemble of data
+#+RESULTS:
+[[file:./img/2_apps_min_mean_time/rs_200_samples_1_iterations_scatter_saturation_quantreg_pred.pdf]]
+
+* Notes
+- Is average hop latency the only parameter that changes over time?
